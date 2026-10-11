@@ -147,6 +147,9 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
 .hist-list .hm { color: var(--muted); font-size: 12.5px; }
 .hist-list .bar { height: 4px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
 .hist-list .bar i { display: block; height: 100%; background: var(--accent); }
+.hbtns { display: grid; gap: 6px; justify-items: stretch; text-align: center; flex: none; }
+.ghost.del { color: var(--muted); }
+.ghost.warn { color: #fff; background: #c0392b; border-color: #c0392b; }
 .hist-list .hist-none { color: var(--muted); font-size: 13px; justify-content: flex-start; }
 .hist-note { margin: 0; color: var(--muted); font-size: 12.5px; max-width: 52ch; }
 .hist-btns { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -242,7 +245,7 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
       <div class="hist-head"><b>학습 기록</b><span id="histStats"></span></div>
       <ul class="hist-list" id="histList"></ul>
       <p class="hist-note">기록은 이 기기의 브라우저에 자동으로 저장돼요. 다른 기기에서 이어서 하려면 영상 화면의 "기록 파일 저장"으로 파일을 만들어 영상과 같은 OneDrive 폴더에 두고, 영상을 고를 때 그 파일을 함께 선택해 주세요.</p>
-      <div class="hist-btns"><button class="ghost" id="hExport" type="button">기록 내보내기</button><label class="ghost" id="hImport" for="fh">기록 가져오기</label></div>
+      <div class="hist-btns"><button class="ghost" id="hExport" type="button">기록 내보내기</button><button class="ghost del" id="hClear" type="button">모두 삭제</button><label class="ghost" id="hImport" for="fh">기록 가져오기</label></div>
     </div>
   </section>
 
@@ -496,6 +499,25 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
   document.addEventListener('visibilitychange', function () { if (document.hidden) persist(); });
 
   function showHome() { v.pause(); persist(); $('#app').hidden = true; $('#topActions').hidden = true; $('#empty').hidden = false; renderHome(); }
+  function armDelete(btn, label, run) {
+    var t = null;
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      if (btn.dataset.armed) { clearTimeout(t); delete btn.dataset.armed; btn.textContent = label; btn.classList.remove('warn'); run(); return; }
+      btn.dataset.armed = '1'; btn.textContent = '정말 삭제?'; btn.classList.add('warn');
+      t = setTimeout(function () { delete btn.dataset.armed; btn.textContent = label; btn.classList.remove('warn'); }, 3500);
+    });
+  }
+  function dropVideo(k) {
+    delete hist.videos[k];
+    if (vfile && key === k) { try { v.pause(); } catch (e) {} segs = []; cues = []; hasText = false; recs = {}; stars = {}; counts = {}; idioms = {}; idx = -1; vfile = null; dirty = false; }
+    saveHist(); renderHome(); toast('기록을 삭제했어요.');
+  }
+  function dropAll() {
+    hist.videos = {};
+    if (vfile) { try { v.pause(); } catch (e) {} segs = []; cues = []; hasText = false; recs = {}; stars = {}; counts = {}; idioms = {}; idx = -1; vfile = null; dirty = false; }
+    saveHist(); renderHome(); toast('모든 기록을 삭제했어요.');
+  }
   function renderHome() {
     var vs = Object.keys(hist.videos).map(function (k) { return { k: k, m: hist.videos[k] }; }).sort(function (a, b) { return (b.m.opened || 0) - (a.m.opened || 0); });
     var ul = $('#histList'); ul.textContent = '';
@@ -508,7 +530,10 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
       bar.className = 'bar'; i.style.width = pct + '%'; bar.appendChild(i);
       if (m.builtin && BUILTIN.url) { b = document.createElement('button'); b.type = 'button'; b.className = 'ghost'; b.textContent = '이어하기'; b.addEventListener('click', loadBuiltin); }
       else { b = document.createElement('label'); b.className = 'ghost'; b.htmlFor = 'fv'; b.textContent = '이어하기'; b.addEventListener('click', function () { toast('같은 영상 파일을 골라 주세요. (' + m.name + ')'); }); }
-      a.appendChild(n); a.appendChild(s); a.appendChild(bar); li.appendChild(a); li.appendChild(b); ul.appendChild(li);
+      var dl = document.createElement('button'); dl.type = 'button'; dl.className = 'ghost del'; dl.textContent = '삭제';
+      armDelete(dl, '삭제', function () { dropVideo(o.k); });
+      var bx = document.createElement('div'); bx.className = 'hbtns'; bx.appendChild(b); bx.appendChild(dl);
+      a.appendChild(n); a.appendChild(s); a.appendChild(bar); li.appendChild(a); li.appendChild(bx); ul.appendChild(li);
     });
     var days = {}; vs.forEach(function (o) { var d = o.m.days || {}; Object.keys(d).forEach(function (k) { days[k] = (days[k] || 0) + d[k]; }); });
     var dt = new Date(), min = Math.round((days[ymd(dt)] || 0) / 60), streak = 0;
@@ -530,6 +555,7 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
     });
     saveHist();
   }
+  armDelete($('#hClear'), '모두 삭제', dropAll);
   $('#hExport').addEventListener('click', function () {
     persist();
     shareOrSave(JSON.stringify(hist), 'shadowing-history.json', 'application/json', '학습 기록을 저장했어요. OneDrive에 같이 보관해 두세요.').catch(function (err) { if (!err || err.code !== 'declined') toast('저장하지 못했어요.'); });
