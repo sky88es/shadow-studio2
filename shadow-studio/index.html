@@ -88,12 +88,17 @@ svg { display: block; fill: currentColor; }
 .segbar i { display: block; height: 100%; width: 0; background: var(--accent); }
 .timeline { width: 100%; height: 30px; display: block; border-radius: 8px; background: var(--surface); cursor: pointer; touch-action: none; }
 
+.player .timeline { height: 22px; }
+.card.pinned { padding: 10px 14px 12px; gap: 6px; text-align: center; }
+.card.pinned .card-head { justify-content: space-between; }
+.card.pinned .line { font-size: clamp(19px, 5vw, 26px); min-height: 2.6em; display: flex; align-items: center; justify-content: center; }
+.card.pinned .lineko { font-size: 15px; min-height: 2.9em; color: var(--accent); }
+.card.pinned .lineko:empty { display: block; }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px 14px; display: grid; gap: 12px; min-width: 0; }
 .card-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-variant-numeric: tabular-nums; }
 .line { font-family: var(--font-read); font-size: clamp(22px, 5.4vw, 30px); line-height: 1.3; font-weight: 400; margin: 0; min-height: 2.6em; text-wrap: pretty; transition: filter .2s; overflow-wrap: anywhere; }
 .line.none { color: var(--muted); font-style: italic; font-size: 19px; }
 .lineko { font-size: 16px; line-height: 1.45; color: var(--muted); margin: -2px 0 0; min-height: 0; overflow-wrap: anywhere; }
-.lineko:empty { display: none; }
 .seg .ko { display: block; font-size: 13px; line-height: 1.35; color: var(--muted); margin-top: 2px; overflow-wrap: anywhere; }
 .line.blur { filter: blur(9px); cursor: pointer; user-select: none; }
 .card-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -189,6 +194,7 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
 .spin { width: 26px; height: 26px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--accent); margin: 0 auto 12px; animation: sp 0.9s linear infinite; }
 @keyframes sp { to { transform: rotate(360deg); } }
 
+@media (max-width: 899px) { .stage { display: contents; } }
 @media (min-width: 900px) {
   body { padding-block: 16px 40px; }
   .app { grid-template-columns: minmax(0, 1fr) 380px; align-items: start; gap: 20px; }
@@ -249,12 +255,14 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
           <div class="segbar"><i id="segfill"></i></div>
         </div>
         <canvas class="timeline" id="timeline" tabindex="0" aria-label="영상 전체 문장 타임라인"></canvas>
+        <div class="card pinned" id="card">
+          <div class="card-head"><span id="cardNo">문장 -</span><span id="cardTime">0:00 – 0:00</span></div>
+          <p class="line" id="line">영상을 불러오는 중이에요.</p>
+          <p class="lineko" id="lineKo"></p>
+        </div>
       </div>
 
-      <div class="card" id="card">
-        <div class="card-head"><span id="cardNo">문장 -</span><span id="cardTime">0:00 – 0:00</span></div>
-        <p class="line" id="line">영상을 불러오는 중이에요.</p>
-        <p class="lineko" id="lineKo"></p>
+      <div class="card" id="extras">
         <input class="idiom" id="idiom" type="text" placeholder="이 문장의 핵심 숙어·표현 적기 (선택)" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="80">
         <canvas id="wave"></canvas>
         <div class="card-actions">
@@ -311,6 +319,7 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
 </main>
 
 <input type="file" id="fv" class="vh" multiple>
+<input type="file" id="fk" class="vh">
 <input type="file" id="fr" class="vh" accept="audio/*" capture>
 <input type="file" id="fh" class="vh" accept=".json,application/json">
 <input type="file" id="fs" class="vh" accept=".srt,.vtt,.txt,text/vtt,text/plain">
@@ -339,7 +348,7 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
     <h2>대본 붙여넣기</h2>
     <p style="margin:0;color:var(--muted);font-size:13px">유튜브 영상 아래 설명란의 "스크립트 표시"를 열고, 시간이 보이는 상태로 전체를 복사해서 붙여넣어 주세요. .srt 내용도 돼요.</p>
     <textarea id="pasteBox" rows="9" placeholder="0:00&#10;We bought an abandoned church...&#10;0:04&#10;Honestly, the renovation..." spellcheck="false" autocapitalize="off"></textarea>
-    <label class="chk" id="pKoWrap" hidden><input type="checkbox" id="pKo" checked> 붙여넣은 뒤 Claude가 한글로 자연스럽게 번역</label>
+    <label class="chk" id="pKoWrap"><input type="checkbox" id="pKo" checked><span id="pKoLbl"> 붙여넣은 뒤 한글 번역도 자동으로</span></label>
     <div class="modal-btns"><button class="ghost" type="button" id="pCancel">닫기</button><button class="solid" type="submit">문장으로 나누기</button></div>
   </form>
 </div>
@@ -348,7 +357,8 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
     <h2>한글 번역</h2>
     <label class="chk"><input type="checkbox" id="koShow" checked> 문장 아래에 한글 번역 보이기</label>
     <button class="ghost" type="button" id="koAuto">인터넷으로 자동 번역</button>
-    <p style="margin:0;color:var(--muted);font-size:13px">자동 번역이 안 되면, 번역문을 한 줄에 한 문장씩 순서대로 붙여넣어 주세요. (문장 수와 줄 수가 같아야 정확해요)</p>
+    <p style="margin:0;color:var(--muted);font-size:13px">번역문을 붙여넣어 주세요. 대본과 같은 형식(<b>[00:00:12] 한글 번역</b>)이면 시간에 맞춰 자동으로 들어가요. 시간이 없으면 한 줄에 한 문장씩 순서대로 넣어요.</p>
+    <label class="ghost" for="fk" style="justify-self:start">번역 파일(.txt) 불러오기</label>
     <textarea id="koBox" rows="7" placeholder="첫 번째 문장의 번역&#10;두 번째 문장의 번역" spellcheck="false"></textarea>
     <div class="modal-btns"><button class="ghost" type="button" id="koCancel">닫기</button><button class="solid" type="submit">번역 넣기</button></div>
   </form>
@@ -554,7 +564,7 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
   function mergeSentences(c) {
     var out = [], cur = null;
     c.forEach(function (x) {
-      if (!cur) cur = { s: x.s, e: x.e, text: x.text }; else { cur.text += ' ' + x.text; cur.e = x.e; }
+      if (!cur) cur = { s: x.s, e: x.e, text: x.text, ko: x.ko || '' }; else { cur.text += ' ' + x.text; cur.e = x.e; if (x.ko) cur.ko = (cur.ko ? cur.ko + ' ' : '') + x.ko; }
       var dur = cur.e - cur.s;
       if ((/[.!?…]["')\]”’]?$/.test(cur.text) && dur >= 2.5) || dur >= 9) { out.push(cur); cur = null; }
     });
@@ -571,7 +581,7 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
   }
   function applyCues() {
     var d = v.duration || Infinity;
-    var src = $('#merge').checked ? mergeSentences(cues) : cues.map(function (x) { return { s: x.s, e: x.e, text: x.text }; });
+    var src = $('#merge').checked ? mergeSentences(cues) : cues.map(function (x) { return { s: x.s, e: x.e, text: x.text, ko: x.ko || '' }; });
     segs = src.filter(function (x) { return x.s < d; }).map(function (x) { x.e = Math.min(x.e, d); return x; });
     recs = {}; stars = {}; counts = {}; idioms = {}; persist(); setIdx(0, true); renderAll();
   }
@@ -668,7 +678,7 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
     $('#cardTime').textContent = sg ? fmt(sg.s) + ' – ' + fmt(sg.e) + (counts[idx] ? ' · ' + counts[idx] + '회 연습' : '') : '';
     if (!sg) { $('#lineKo').textContent = ''; ln.textContent = '문장이 아직 없어요.'; ln.className = 'line none'; return; }
     ln.textContent = sg.text || '자막이 없어요. 소리를 듣고 그대로 따라 말해 보세요.';
-    $('#lineKo').textContent = (koOn && sg.ko) ? sg.ko : '';
+    $('#lineKo').hidden = !koOn; $('#lineKo').textContent = (koOn && sg.ko) ? sg.ko : '';
     ln.className = 'line' + (sg.text ? '' : ' none') + (blurOn && sg.text ? ' blur' : '');
     var r = recs[idx]; $('#myVoice').hidden = !r; $('#compare').hidden = !r;
     paintStar(); var ii = $('#idiom'); if (document.activeElement !== ii) ii.value = idioms[idx] || ''; ii.disabled = idx < 0;
@@ -867,7 +877,7 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
     if (!c.length) { toast('시간이 같이 있는 대본이 필요해요. 스크립트를 시간 포함해서 복사해 주세요.'); return; }
     cues = c; hasText = true; applyCues(); $('#pasteModal').hidden = true; $('#pasteBox').value = '';
     toast('대본 ' + segs.length + '문장을 넣었어요. "기록 파일 저장"으로 OneDrive에 보관해 두세요.');
-    if (sampleFn && $('#pKo').checked) runKoAuto();
+    if ($('#pKo').checked) runKoAuto();
   });
 
   /* ---------- 한글 번역 ---------- */
@@ -875,8 +885,31 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
   $('#koBtn').addEventListener('click', openKo);
   $('#koCancel').addEventListener('click', function () { $('#koModal').hidden = true; });
   $('#koShow').addEventListener('change', function () { koOn = this.checked; store('ss:ko', koOn ? '1' : '0'); renderAll(); });
+  function reapplyKo() {
+    var src = $('#merge').checked ? mergeSentences(cues) : cues.map(function (x) { return { s: x.s, e: x.e, text: x.text, ko: x.ko || '' }; });
+    var by = {}; src.forEach(function (x) { by[x.s.toFixed(2)] = x.ko; });
+    var hit = 0; segs.forEach(function (sg) { var k = by[sg.s.toFixed(2)]; if (k) { sg.ko = k; hit++; } });
+    return hit;
+  }
+  function applyKoByTime(text) {
+    if (!hasText || !cues.length) return -1;
+    var items;
+    try { items = parseTranscript(text); } catch (e) { return -1; }
+    if (!items || items.length < Math.min(3, cues.length)) return -1;
+    var n = 0;
+    items.forEach(function (it) {
+      var best = -1, bd = 1.2;
+      for (var i = 0; i < cues.length; i++) { var d = Math.abs(cues[i].s - it.s); if (d < bd) { bd = d; best = i; } }
+      if (best >= 0 && it.text) { cues[best].ko = it.text; n++; }
+    });
+    return n < Math.max(2, cues.length * 0.5) ? -1 : n;
+  }
+  $('#fk').addEventListener('change', function (e) { var f = e.target.files[0]; e.target.value = ''; if (f) f.text().then(function (t) { $('#koBox').value = t; }); });
   $('#koForm').addEventListener('submit', function (e) {
     e.preventDefault();
+    var raw = $('#koBox').value;
+    var nt = applyKoByTime(raw);
+    if (nt > 0) { reapplyKo(); koOn = true; store('ss:ko', '1'); persist(); renderAll(); $('#koModal').hidden = true; $('#koBox').value = ''; toast('번역 ' + nt + '줄을 시간에 맞춰 넣었어요.'); return; }
     var lines = $('#koBox').value.split(/\r?\n/).map(function (x) { return x.replace(/^\s*\d+[.)]\s+/, '').trim(); }).filter(Boolean);
     if (!lines.length) { toast('번역문을 붙여넣어 주세요.'); return; }
     var n = Math.min(lines.length, segs.length);
@@ -887,12 +920,19 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
   var koJob = 0;
   function gtx(text) {
     return fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ko&dt=t&q=' + encodeURIComponent(text))
-      .then(function (r) { if (!r.ok) throw new Error('http'); return r.json(); })
-      .then(function (j) { return (j[0] || []).map(function (a) { return a[0]; }).join(''); });
+      .then(function (r) { if (!r.ok) throw new Error('gtx ' + r.status); return r.json(); })
+      .then(function (j) { var t = (j[0] || []).map(function (a) { return a[0]; }).join(''); if (!t) throw new Error('gtx empty'); return t; });
   }
+  function mymem(text) {
+    return fetch('https://api.mymemory.translated.net/get?langpair=en%7Cko&q=' + encodeURIComponent(text.slice(0, 480)))
+      .then(function (r) { if (!r.ok) throw new Error('mm ' + r.status); return r.json(); })
+      .then(function (j) { var t = j && j.responseData && j.responseData.translatedText; if (!t || /MYMEMORY WARNING|QUERY LENGTH/i.test(t)) throw new Error('mm limit'); return t; });
+  }
+  var lastKoErr = '';
+  function webTranslate(text) { return gtx(text).catch(function (e) { lastKoErr = String(e && e.message || e); return mymem(text); }).catch(function (e) { lastKoErr += ' / ' + String(e && e.message || e); throw e; }); }
   var sampleFn = null;
   try { if (window.claude && window.claude.use) window.claude.use('sample').then(function (f) { sampleFn = f || null; refreshKoUi(); }).catch(function () {}); } catch (e) {}
-  function refreshKoUi() { var w = $('#pKoWrap'); if (w) w.hidden = !sampleFn; var b = $('#koAuto'); if (b) b.textContent = sampleFn ? 'Claude로 자연스럽게 번역' : '인터넷으로 자동 번역'; }
+  function refreshKoUi() { var l = $('#pKoLbl'); if (l) l.textContent = sampleFn ? ' 붙여넣은 뒤 Claude가 한글로 자연스럽게 번역' : ' 붙여넣은 뒤 한글 번역도 자동으로 (인터넷 번역)'; var b = $('#koAuto'); if (b) b.textContent = sampleFn ? 'Claude로 자연스럽게 번역' : '인터넷으로 자동 번역'; }
   function claudeChunk(idxs) {
     var texts = idxs.map(function (k) { return segs[k].text; });
     var prompt = '아래는 영어 영상 대본의 연속된 문장들입니다(JSON 배열). 앞뒤 문맥을 고려해 각 문장을 자연스럽고 매끄러운 한국어(구어체)로 번역하세요. 직역투를 피하고 뜻이 바로 들어오게 쓰세요. 입력과 같은 개수의 한국어 문자열로 된 JSON 배열만 출력하세요.\n\n' + JSON.stringify(texts);
@@ -913,7 +953,7 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
     function finish() {
       busy(false); persist(); renderAll();
       if (fatal) toast(fatal);
-      else if (fails && fails >= done) toast('자동 번역이 막혀 있어요. 번역문을 붙여넣는 방법을 써 주세요.');
+      else if (fails && fails >= done) toast('인터넷 번역이 안 돼요(' + lastKoErr.slice(0, 60) + '). 대본을 Claude에게 보내 번역을 받아 붙여넣어 주세요.');
       else toast('번역을 넣었어요.' + (fails ? ' (' + fails + '문장 실패)' : ''));
     }
     function stepClaude() {
@@ -931,7 +971,7 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
       function one() {
         if (job !== koJob || pos >= todo.length) return Promise.resolve();
         var k = todo[pos++];
-        return gtx(segs[k].text).then(function (t) { if (t) segs[k].ko = t; }).catch(function () { fails++; }).then(function () {
+        return webTranslate(segs[k].text).then(function (t) { if (t) segs[k].ko = t; }).catch(function () { fails++; }).then(function () {
           done++; if (done % 5 === 0) { $('#busyS').textContent = done + ' / ' + todo.length; renderAll(); }
           if (fails >= 3 && done <= fails) return;
           return one();
