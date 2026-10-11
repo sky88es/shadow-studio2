@@ -92,7 +92,7 @@ svg { display: block; fill: currentColor; }
 .card-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-variant-numeric: tabular-nums; }
 .line { font-family: var(--font-read); font-size: clamp(22px, 5.4vw, 30px); line-height: 1.3; font-weight: 400; margin: 0; min-height: 2.6em; text-wrap: pretty; transition: filter .2s; overflow-wrap: anywhere; }
 .line.none { color: var(--muted); font-style: italic; font-size: 19px; }
-.lineko { font-size: 15px; line-height: 1.45; color: var(--muted); margin: -2px 0 0; min-height: 0; overflow-wrap: anywhere; }
+.lineko { font-size: 16px; line-height: 1.45; color: var(--muted); margin: -2px 0 0; min-height: 0; overflow-wrap: anywhere; }
 .lineko:empty { display: none; }
 .seg .ko { display: block; font-size: 13px; line-height: 1.35; color: var(--muted); margin-top: 2px; overflow-wrap: anywhere; }
 .line.blur { filter: blur(9px); cursor: pointer; user-select: none; }
@@ -339,6 +339,7 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
     <h2>대본 붙여넣기</h2>
     <p style="margin:0;color:var(--muted);font-size:13px">유튜브 영상 아래 설명란의 "스크립트 표시"를 열고, 시간이 보이는 상태로 전체를 복사해서 붙여넣어 주세요. .srt 내용도 돼요.</p>
     <textarea id="pasteBox" rows="9" placeholder="0:00&#10;We bought an abandoned church...&#10;0:04&#10;Honestly, the renovation..." spellcheck="false" autocapitalize="off"></textarea>
+    <label class="chk" id="pKoWrap" hidden><input type="checkbox" id="pKo" checked> 붙여넣은 뒤 Claude가 한글로 자연스럽게 번역</label>
     <div class="modal-btns"><button class="ghost" type="button" id="pCancel">닫기</button><button class="solid" type="submit">문장으로 나누기</button></div>
   </form>
 </div>
@@ -866,6 +867,7 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
     if (!c.length) { toast('시간이 같이 있는 대본이 필요해요. 스크립트를 시간 포함해서 복사해 주세요.'); return; }
     cues = c; hasText = true; applyCues(); $('#pasteModal').hidden = true; $('#pasteBox').value = '';
     toast('대본 ' + segs.length + '문장을 넣었어요. "기록 파일 저장"으로 OneDrive에 보관해 두세요.');
+    if (sampleFn && $('#pKo').checked) runKoAuto();
   });
 
   /* ---------- 한글 번역 ---------- */
@@ -888,7 +890,18 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
       .then(function (r) { if (!r.ok) throw new Error('http'); return r.json(); })
       .then(function (j) { return (j[0] || []).map(function (a) { return a[0]; }).join(''); });
   }
-  $('#koAuto').addEventListener('click', function () {
+  var sampleFn = null;
+  try { if (window.claude && window.claude.use) window.claude.use('sample').then(function (f) { sampleFn = f || null; refreshKoUi(); }).catch(function () {}); } catch (e) {}
+  function refreshKoUi() { var w = $('#pKoWrap'); if (w) w.hidden = !sampleFn; var b = $('#koAuto'); if (b) b.textContent = sampleFn ? 'Claude로 자연스럽게 번역' : '인터넷으로 자동 번역'; }
+  function claudeChunk(idxs) {
+    var texts = idxs.map(function (k) { return segs[k].text; });
+    var prompt = '아래는 영어 영상 대본의 연속된 문장들입니다(JSON 배열). 앞뒤 문맥을 고려해 각 문장을 자연스럽고 매끄러운 한국어(구어체)로 번역하세요. 직역투를 피하고 뜻이 바로 들어오게 쓰세요. 입력과 같은 개수의 한국어 문자열로 된 JSON 배열만 출력하세요.\n\n' + JSON.stringify(texts);
+    return sampleFn.json(prompt).then(function (arr) {
+      if (!Array.isArray(arr)) throw { code: 'invalid_json' };
+      idxs.forEach(function (k, j) { if (typeof arr[j] === 'string' && arr[j]) segs[k].ko = arr[j]; });
+    });
+  }
+  function runKoAuto() {
     if (!segs.length) return;
     if (!hasText) { toast('영어 대본이 있어야 번역할 수 있어요.'); return; }
     var job = ++koJob, todo = [], i;
@@ -896,23 +909,39 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
     if (!todo.length) { toast('이미 모두 번역돼 있어요.'); return; }
     $('#koModal').hidden = true; koOn = true; store('ss:ko', '1');
     busy(true, '한글로 번역하는 중이에요', '0 / ' + todo.length);
-    var done = 0, fails = 0, ptr = 0;
-    function next() {
-      if (job !== koJob) return Promise.resolve();
-      if (ptr >= todo.length) return Promise.resolve();
-      var k = todo[ptr++];
-      return gtx(segs[k].text).then(function (t) { if (t) segs[k].ko = t; }).catch(function () { fails++; }).then(function () {
-        done++; if (done % 5 === 0) { $('#busyS').textContent = done + ' / ' + todo.length; renderAll(); }
-        if (fails >= 3 && done <= fails) return;
-        return next();
-      });
-    }
-    Promise.all([next(), next(), next()]).then(function () {
+    var done = 0, fails = 0, pos = 0, useClaude = !!sampleFn, fatal = '';
+    function finish() {
       busy(false); persist(); renderAll();
-      if (fails && fails >= done) toast('이 환경에서는 자동 번역이 막혀 있어요. 번역문을 붙여넣는 방법을 써 주세요.');
+      if (fatal) toast(fatal);
+      else if (fails && fails >= done) toast('자동 번역이 막혀 있어요. 번역문을 붙여넣는 방법을 써 주세요.');
       else toast('번역을 넣었어요.' + (fails ? ' (' + fails + '문장 실패)' : ''));
-    });
-  });
+    }
+    function stepClaude() {
+      if (job !== koJob || pos >= todo.length) return Promise.resolve();
+      var part = todo.slice(pos, pos + 25); pos += part.length;
+      return claudeChunk(part).then(function () { done += part.length; $('#busyS').textContent = done + ' / ' + todo.length; persist(); renderAll(); return stepClaude(); })
+        .catch(function (e) {
+          var c = e && e.code;
+          if (c === 'not_granted' || c === 'sampling_disabled' || c === 'capability_disabled' || c === 'capability_removed' || c === 'not_declared') { sampleFn = null; refreshKoUi(); pos -= part.length; useClaude = false; return stepWeb(); }
+          if (c === 'cancelled') return;
+          fatal = c === 'rate_limited' ? '요청이 많아 잠시 멈췄어요. 잠시 후 다시 눌러 주세요.' : '번역 중 문제가 생겼어요. 다시 눌러 이어서 번역할 수 있어요.';
+        });
+    }
+    function stepWeb() {
+      function one() {
+        if (job !== koJob || pos >= todo.length) return Promise.resolve();
+        var k = todo[pos++];
+        return gtx(segs[k].text).then(function (t) { if (t) segs[k].ko = t; }).catch(function () { fails++; }).then(function () {
+          done++; if (done % 5 === 0) { $('#busyS').textContent = done + ' / ' + todo.length; renderAll(); }
+          if (fails >= 3 && done <= fails) return;
+          return one();
+        });
+      }
+      return Promise.all([one(), one(), one()]);
+    }
+    (useClaude ? stepClaude() : stepWeb()).then(function () { if (job === koJob) finish(); });
+  }
+  $('#koAuto').addEventListener('click', runKoAuto);
 
   /* ---------- 표현 복사 ---------- */
   function starList() { return segs.map(function (s, i) { return { i: i, sg: s }; }).filter(function (x) { return stars[x.i] || idioms[x.i]; }); }
