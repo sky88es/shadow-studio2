@@ -92,6 +92,9 @@ svg { display: block; fill: currentColor; }
 .card-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-variant-numeric: tabular-nums; }
 .line { font-family: var(--font-read); font-size: clamp(22px, 5.4vw, 30px); line-height: 1.3; font-weight: 400; margin: 0; min-height: 2.6em; text-wrap: pretty; transition: filter .2s; overflow-wrap: anywhere; }
 .line.none { color: var(--muted); font-style: italic; font-size: 19px; }
+.lineko { font-size: 15px; line-height: 1.45; color: var(--muted); margin: -2px 0 0; min-height: 0; overflow-wrap: anywhere; }
+.lineko:empty { display: none; }
+.seg .ko { display: block; font-size: 13px; line-height: 1.35; color: var(--muted); margin-top: 2px; overflow-wrap: anywhere; }
 .line.blur { filter: blur(9px); cursor: pointer; user-select: none; }
 .card-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .pill { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; background: var(--surface-2); font-size: 13px; font-weight: 600; }
@@ -251,6 +254,7 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
       <div class="card" id="card">
         <div class="card-head"><span id="cardNo">문장 -</span><span id="cardTime">0:00 – 0:00</span></div>
         <p class="line" id="line">영상을 불러오는 중이에요.</p>
+        <p class="lineko" id="lineKo"></p>
         <input class="idiom" id="idiom" type="text" placeholder="이 문장의 핵심 숙어·표현 적기 (선택)" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="80">
         <canvas id="wave"></canvas>
         <div class="card-actions">
@@ -268,6 +272,7 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
         <div class="opts">
           <label class="chk" id="mergeWrap" hidden><input type="checkbox" id="merge" checked> 문장으로 합치기</label>
           <button class="ghost" id="pasteBtn2" type="button">대본 붙여넣기</button>
+          <button class="ghost" id="koBtn" type="button">한글 번역</button>
           <button class="ghost" id="saveRec" type="button">기록 파일 저장</button>
           <button class="ghost" id="copyStars" type="button">★ 표현 복사</button>
           <span id="autoWrap">구간 길이
@@ -337,6 +342,16 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
     <div class="modal-btns"><button class="ghost" type="button" id="pCancel">닫기</button><button class="solid" type="submit">문장으로 나누기</button></div>
   </form>
 </div>
+<div class="busy" id="koModal" hidden>
+  <form class="modal-card" id="koForm">
+    <h2>한글 번역</h2>
+    <label class="chk"><input type="checkbox" id="koShow" checked> 문장 아래에 한글 번역 보이기</label>
+    <button class="ghost" type="button" id="koAuto">인터넷으로 자동 번역</button>
+    <p style="margin:0;color:var(--muted);font-size:13px">자동 번역이 안 되면, 번역문을 한 줄에 한 문장씩 순서대로 붙여넣어 주세요. (문장 수와 줄 수가 같아야 정확해요)</p>
+    <textarea id="koBox" rows="7" placeholder="첫 번째 문장의 번역&#10;두 번째 문장의 번역" spellcheck="false"></textarea>
+    <div class="modal-btns"><button class="ghost" type="button" id="koCancel">닫기</button><button class="solid" type="submit">번역 넣기</button></div>
+  </form>
+</div>
 <div class="busy mini" id="busy" hidden><div><span class="spin"></span><span class="bt"><b id="busyT">소리를 분석하는 중이에요</b><small id="busyS">화면은 그대로 쓸 수 있어요.</small></span><button class="ghost" id="busyX" type="button">취소</button></div></div>
 
 <script>
@@ -344,6 +359,7 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
   var $ = function (s) { return document.querySelector(s); };
   var v = $('#video'), mine = $('#mine');
   var segs = [], cues = [], hasText = false, idx = -1;
+  var koOn = (function () { try { return localStorage.getItem('ss:ko') !== '0'; } catch (e) { return true; } })();
   var mode = 'loop', rates = [0.5, 0.75, 1, 1.25], ri = 2, blurOn = false;
   var BUILTIN = { name: 'I Bought An Abandoned Church For 45K, Spent 194K Making It A Home.mp4', size: 9272889, url: '', segs: [{"s": 0.31, "e": 11.66, "text": ""}, {"s": 11.81, "e": 19.72, "text": ""}, {"s": 19.87, "e": 22.2, "text": ""}, {"s": 22.35, "e": 28.64, "text": ""}, {"s": 28.75, "e": 36.96, "text": ""}, {"s": 37.09, "e": 40.86, "text": ""}, {"s": 41.41, "e": 50.78, "text": ""}, {"s": 50.89, "e": 61.9, "text": ""}, {"s": 62.27, "e": 68.54, "text": ""}, {"s": 68.71, "e": 73.76, "text": ""}, {"s": 73.87, "e": 84.4, "text": ""}, {"s": 84.55, "e": 93.1, "text": ""}, {"s": 93.23, "e": 98.7, "text": ""}, {"s": 98.91, "e": 107.3, "text": ""}, {"s": 106.95, "e": 116.76, "text": ""}, {"s": 116.41, "e": 121.04, "text": ""}, {"s": 120.69, "e": 127.5, "text": ""}, {"s": 127.15, "e": 134.88, "text": ""}, {"s": 134.97, "e": 140.16, "text": ""}, {"s": 142.81, "e": 152.62, "text": ""}, {"s": 155.59, "e": 157.7, "text": ""}, {"s": 157.79, "e": 160.68, "text": ""}, {"s": 161.93, "e": 170.16, "text": ""}, {"s": 170.77, "e": 176.26, "text": ""}, {"s": 176.77, "e": 180.26, "text": ""}, {"s": 180.47, "e": 186.36, "text": ""}, {"s": 186.61, "e": 188.86, "text": ""}, {"s": 189.05, "e": 195.36, "text": ""}, {"s": 196.29, "e": 199.42, "text": ""}, {"s": 199.67, "e": 206.96, "text": ""}, {"s": 207.05, "e": 212.72, "text": ""}, {"s": 212.37, "e": 221.72, "text": ""}, {"s": 221.37, "e": 228.2, "text": ""}, {"s": 227.85, "e": 236.56, "text": ""}, {"s": 236.21, "e": 243.38, "text": ""}, {"s": 243.53, "e": 251.32, "text": ""}, {"s": 252.03, "e": 259.38, "text": ""}, {"s": 259.67, "e": 271.62, "text": ""}, {"s": 271.27, "e": 283.3, "text": ""}, {"s": 282.95, "e": 291.84, "text": ""}, {"s": 291.49, "e": 298.22, "text": ""}, {"s": 297.87, "e": 304.8, "text": ""}, {"s": 304.45, "e": 312.52, "text": ""}, {"s": 312.17, "e": 319.58, "text": ""}, {"s": 319.23, "e": 328.48, "text": ""}, {"s": 328.13, "e": 335.96, "text": ""}, {"s": 336.11, "e": 337.86, "text": ""}, {"s": 337.97, "e": 342.74, "text": ""}, {"s": 342.39, "e": 351.18, "text": ""}, {"s": 351.31, "e": 357.68, "text": ""}, {"s": 357.33, "e": 367.18, "text": ""}, {"s": 367.29, "e": 375.18, "text": ""}, {"s": 375.31, "e": 381.56, "text": ""}, {"s": 382.01, "e": 389.88, "text": ""}, {"s": 390.93, "e": 399.68, "text": ""}, {"s": 399.33, "e": 407.16, "text": ""}, {"s": 407.27, "e": 413.1, "text": ""}, {"s": 413.35, "e": 419.54, "text": ""}, {"s": 419.73, "e": 427.3, "text": ""}, {"s": 426.95, "e": 435.7, "text": ""}, {"s": 435.35, "e": 440.1, "text": ""}, {"s": 440.35, "e": 451.68, "text": ""}, {"s": 452.07, "e": 454.46, "text": ""}, {"s": 454.55, "e": 458.8, "text": ""}, {"s": 459.11, "e": 460.48, "text": ""}, {"s": 464.39, "e": 466.9, "text": ""}, {"s": 468.91, "e": 470.98, "text": ""}, {"s": 471.13, "e": 478.54, "text": ""}, {"s": 480.03, "e": 490.5, "text": ""}, {"s": 490.15, "e": 494.58, "text": ""}, {"s": 494.23, "e": 503.96, "text": ""}, {"s": 505.05, "e": 512.62, "text": ""}, {"s": 514.05, "e": 521.8, "text": ""}, {"s": 521.97, "e": 524.24, "text": ""}, {"s": 525.27, "e": 529.22, "text": ""}, {"s": 529.39, "e": 531.42, "text": ""}, {"s": 531.51, "e": 540.98, "text": ""}, {"s": 540.63, "e": 552.12, "text": ""}] };
   var vfile = null, vurl = null, vurlB = false, key = '';
@@ -618,7 +634,7 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
     });
   }
   var job = 0;
-  $('#busyX').addEventListener('click', function () { job++; busy(false); toast('분석을 취소했어요.'); });
+  $('#busyX').addEventListener('click', function () { job++; koJob++; busy(false); toast('분석을 취소했어요.'); });
   $('#redo').addEventListener('click', function () { store('ss:gap', $('#gap').value); autoSegment(); });
 
   /* ---------- 렌더링 ---------- */
@@ -631,7 +647,7 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
       var w = document.createElement('span'), tx = document.createElement('span'), tm = document.createElement('span');
       tx.className = 'tx'; tx.textContent = sg.text || '문장 ' + (i + 1); if (!sg.text) tx.style.color = 'var(--muted)';
       tm.className = 'tm'; tm.textContent = fmt(sg.s) + ' – ' + fmt(sg.e);
-      w.appendChild(tx); w.appendChild(tm); li.appendChild(n); li.appendChild(w); listEl.appendChild(li);
+      w.appendChild(tx); if (sg.ko && koOn) { var ko = document.createElement('span'); ko.className = 'ko'; ko.textContent = sg.ko; w.appendChild(ko); } w.appendChild(tm); li.appendChild(n); li.appendChild(w); listEl.appendChild(li);
     });
     $('#listInfo').textContent = segs.length ? segs.length + '문장 · ' + (hasText ? '자막 기준' : '소리 기준') : '';
     $('#mergeWrap').hidden = !hasText; $('#autoWrap').hidden = hasText && false;
@@ -649,8 +665,9 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
     var sg = segs[idx], ln = $('#line');
     $('#cardNo').textContent = sg ? '문장 ' + (idx + 1) + ' / ' + segs.length : '문장 -';
     $('#cardTime').textContent = sg ? fmt(sg.s) + ' – ' + fmt(sg.e) + (counts[idx] ? ' · ' + counts[idx] + '회 연습' : '') : '';
-    if (!sg) { ln.textContent = '문장이 아직 없어요.'; ln.className = 'line none'; return; }
+    if (!sg) { $('#lineKo').textContent = ''; ln.textContent = '문장이 아직 없어요.'; ln.className = 'line none'; return; }
     ln.textContent = sg.text || '자막이 없어요. 소리를 듣고 그대로 따라 말해 보세요.';
+    $('#lineKo').textContent = (koOn && sg.ko) ? sg.ko : '';
     ln.className = 'line' + (sg.text ? '' : ' none') + (blurOn && sg.text ? ' blur' : '');
     var r = recs[idx]; $('#myVoice').hidden = !r; $('#compare').hidden = !r;
     paintStar(); var ii = $('#idiom'); if (document.activeElement !== ii) ii.value = idioms[idx] || ''; ii.disabled = idx < 0;
@@ -849,6 +866,52 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
     if (!c.length) { toast('시간이 같이 있는 대본이 필요해요. 스크립트를 시간 포함해서 복사해 주세요.'); return; }
     cues = c; hasText = true; applyCues(); $('#pasteModal').hidden = true; $('#pasteBox').value = '';
     toast('대본 ' + segs.length + '문장을 넣었어요. "기록 파일 저장"으로 OneDrive에 보관해 두세요.');
+  });
+
+  /* ---------- 한글 번역 ---------- */
+  function openKo() { if (!segs.length) { toast('먼저 영상과 대본을 열어 주세요.'); return; } $('#koShow').checked = koOn; $('#koModal').hidden = false; }
+  $('#koBtn').addEventListener('click', openKo);
+  $('#koCancel').addEventListener('click', function () { $('#koModal').hidden = true; });
+  $('#koShow').addEventListener('change', function () { koOn = this.checked; store('ss:ko', koOn ? '1' : '0'); renderAll(); });
+  $('#koForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var lines = $('#koBox').value.split(/\r?\n/).map(function (x) { return x.replace(/^\s*\d+[.)]\s+/, '').trim(); }).filter(Boolean);
+    if (!lines.length) { toast('번역문을 붙여넣어 주세요.'); return; }
+    var n = Math.min(lines.length, segs.length);
+    for (var i = 0; i < n; i++) segs[i].ko = lines[i];
+    koOn = true; store('ss:ko', '1'); persist(); renderAll(); $('#koModal').hidden = true; $('#koBox').value = '';
+    toast(lines.length === segs.length ? '번역 ' + n + '문장을 넣었어요.' : '문장 ' + segs.length + '개, 번역 ' + lines.length + '줄이라 앞에서부터 ' + n + '개만 넣었어요.');
+  });
+  var koJob = 0;
+  function gtx(text) {
+    return fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ko&dt=t&q=' + encodeURIComponent(text))
+      .then(function (r) { if (!r.ok) throw new Error('http'); return r.json(); })
+      .then(function (j) { return (j[0] || []).map(function (a) { return a[0]; }).join(''); });
+  }
+  $('#koAuto').addEventListener('click', function () {
+    if (!segs.length) return;
+    if (!hasText) { toast('영어 대본이 있어야 번역할 수 있어요.'); return; }
+    var job = ++koJob, todo = [], i;
+    for (i = 0; i < segs.length; i++) if (segs[i].text && !segs[i].ko) todo.push(i);
+    if (!todo.length) { toast('이미 모두 번역돼 있어요.'); return; }
+    $('#koModal').hidden = true; koOn = true; store('ss:ko', '1');
+    busy(true, '한글로 번역하는 중이에요', '0 / ' + todo.length);
+    var done = 0, fails = 0, ptr = 0;
+    function next() {
+      if (job !== koJob) return Promise.resolve();
+      if (ptr >= todo.length) return Promise.resolve();
+      var k = todo[ptr++];
+      return gtx(segs[k].text).then(function (t) { if (t) segs[k].ko = t; }).catch(function () { fails++; }).then(function () {
+        done++; if (done % 5 === 0) { $('#busyS').textContent = done + ' / ' + todo.length; renderAll(); }
+        if (fails >= 3 && done <= fails) return;
+        return next();
+      });
+    }
+    Promise.all([next(), next(), next()]).then(function () {
+      busy(false); persist(); renderAll();
+      if (fails && fails >= done) toast('이 환경에서는 자동 번역이 막혀 있어요. 번역문을 붙여넣는 방법을 써 주세요.');
+      else toast('번역을 넣었어요.' + (fails ? ' (' + fails + '문장 실패)' : ''));
+    });
   });
 
   /* ---------- 표현 복사 ---------- */
