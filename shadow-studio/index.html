@@ -15,7 +15,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
-<style>:root{padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}body{margin:0}</style>
 <style>
 /* Layout: video + timeline on the left, sentence list on the right; on phones the video sticks to the top and the controls dock to the bottom. */
 :root {
@@ -200,8 +199,7 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
-</head>
-<body>
+
 <header class="top">
   <div class="brand">Shadow<i>Studio</i></div>
   <div class="top-actions" id="topActions" hidden>
@@ -234,7 +232,7 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
     <div class="hist" id="hist">
       <div class="hist-head"><b>학습 기록</b><span id="histStats"></span></div>
       <ul class="hist-list" id="histList"></ul>
-      <p class="hist-note">기록은 이 기기의 브라우저에 저장돼요. 다른 기기에서 이어서 하려면 기록 파일을 내보내서 영상과 함께 OneDrive에 두고, 그 기기에서 가져오기를 눌러 주세요.</p>
+      <p class="hist-note">기록은 이 기기의 브라우저에 자동으로 저장돼요. 다른 기기에서 이어서 하려면 영상 화면의 "기록 파일 저장"으로 파일을 만들어 영상과 같은 OneDrive 폴더에 두고, 영상을 고를 때 그 파일을 함께 선택해 주세요.</p>
       <div class="hist-btns"><button class="ghost" id="hExport" type="button">기록 내보내기</button><label class="ghost" id="hImport" for="fh">기록 가져오기</label></div>
     </div>
   </section>
@@ -270,6 +268,7 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
         <div class="opts">
           <label class="chk" id="mergeWrap" hidden><input type="checkbox" id="merge" checked> 문장으로 합치기</label>
           <button class="ghost" id="pasteBtn2" type="button">대본 붙여넣기</button>
+          <button class="ghost" id="saveRec" type="button">기록 파일 저장</button>
           <button class="ghost" id="copyStars" type="button">★ 표현 복사</button>
           <span id="autoWrap">구간 길이
             <select id="gap" aria-label="구간 길이">
@@ -306,7 +305,7 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
   </section>
 </main>
 
-<input type="file" id="fv" class="vh">
+<input type="file" id="fv" class="vh" multiple>
 <input type="file" id="fr" class="vh" accept="audio/*" capture>
 <input type="file" id="fh" class="vh" accept=".json,application/json">
 <input type="file" id="fs" class="vh" accept=".srt,.vtt,.txt,text/vtt,text/plain">
@@ -348,6 +347,15 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
   var mode = 'loop', rates = [0.5, 0.75, 1, 1.25], ri = 2, blurOn = false;
   var BUILTIN = { name: 'I Bought An Abandoned Church For 45K, Spent 194K Making It A Home.mp4', size: 9272889, url: '', segs: [{"s": 0.31, "e": 11.66, "text": ""}, {"s": 11.81, "e": 19.72, "text": ""}, {"s": 19.87, "e": 22.2, "text": ""}, {"s": 22.35, "e": 28.64, "text": ""}, {"s": 28.75, "e": 36.96, "text": ""}, {"s": 37.09, "e": 40.86, "text": ""}, {"s": 41.41, "e": 50.78, "text": ""}, {"s": 50.89, "e": 61.9, "text": ""}, {"s": 62.27, "e": 68.54, "text": ""}, {"s": 68.71, "e": 73.76, "text": ""}, {"s": 73.87, "e": 84.4, "text": ""}, {"s": 84.55, "e": 93.1, "text": ""}, {"s": 93.23, "e": 98.7, "text": ""}, {"s": 98.91, "e": 107.3, "text": ""}, {"s": 106.95, "e": 116.76, "text": ""}, {"s": 116.41, "e": 121.04, "text": ""}, {"s": 120.69, "e": 127.5, "text": ""}, {"s": 127.15, "e": 134.88, "text": ""}, {"s": 134.97, "e": 140.16, "text": ""}, {"s": 142.81, "e": 152.62, "text": ""}, {"s": 155.59, "e": 157.7, "text": ""}, {"s": 157.79, "e": 160.68, "text": ""}, {"s": 161.93, "e": 170.16, "text": ""}, {"s": 170.77, "e": 176.26, "text": ""}, {"s": 176.77, "e": 180.26, "text": ""}, {"s": 180.47, "e": 186.36, "text": ""}, {"s": 186.61, "e": 188.86, "text": ""}, {"s": 189.05, "e": 195.36, "text": ""}, {"s": 196.29, "e": 199.42, "text": ""}, {"s": 199.67, "e": 206.96, "text": ""}, {"s": 207.05, "e": 212.72, "text": ""}, {"s": 212.37, "e": 221.72, "text": ""}, {"s": 221.37, "e": 228.2, "text": ""}, {"s": 227.85, "e": 236.56, "text": ""}, {"s": 236.21, "e": 243.38, "text": ""}, {"s": 243.53, "e": 251.32, "text": ""}, {"s": 252.03, "e": 259.38, "text": ""}, {"s": 259.67, "e": 271.62, "text": ""}, {"s": 271.27, "e": 283.3, "text": ""}, {"s": 282.95, "e": 291.84, "text": ""}, {"s": 291.49, "e": 298.22, "text": ""}, {"s": 297.87, "e": 304.8, "text": ""}, {"s": 304.45, "e": 312.52, "text": ""}, {"s": 312.17, "e": 319.58, "text": ""}, {"s": 319.23, "e": 328.48, "text": ""}, {"s": 328.13, "e": 335.96, "text": ""}, {"s": 336.11, "e": 337.86, "text": ""}, {"s": 337.97, "e": 342.74, "text": ""}, {"s": 342.39, "e": 351.18, "text": ""}, {"s": 351.31, "e": 357.68, "text": ""}, {"s": 357.33, "e": 367.18, "text": ""}, {"s": 367.29, "e": 375.18, "text": ""}, {"s": 375.31, "e": 381.56, "text": ""}, {"s": 382.01, "e": 389.88, "text": ""}, {"s": 390.93, "e": 399.68, "text": ""}, {"s": 399.33, "e": 407.16, "text": ""}, {"s": 407.27, "e": 413.1, "text": ""}, {"s": 413.35, "e": 419.54, "text": ""}, {"s": 419.73, "e": 427.3, "text": ""}, {"s": 426.95, "e": 435.7, "text": ""}, {"s": 435.35, "e": 440.1, "text": ""}, {"s": 440.35, "e": 451.68, "text": ""}, {"s": 452.07, "e": 454.46, "text": ""}, {"s": 454.55, "e": 458.8, "text": ""}, {"s": 459.11, "e": 460.48, "text": ""}, {"s": 464.39, "e": 466.9, "text": ""}, {"s": 468.91, "e": 470.98, "text": ""}, {"s": 471.13, "e": 478.54, "text": ""}, {"s": 480.03, "e": 490.5, "text": ""}, {"s": 490.15, "e": 494.58, "text": ""}, {"s": 494.23, "e": 503.96, "text": ""}, {"s": 505.05, "e": 512.62, "text": ""}, {"s": 514.05, "e": 521.8, "text": ""}, {"s": 521.97, "e": 524.24, "text": ""}, {"s": 525.27, "e": 529.22, "text": ""}, {"s": 529.39, "e": 531.42, "text": ""}, {"s": 531.51, "e": 540.98, "text": ""}, {"s": 540.63, "e": 552.12, "text": ""}] };
   var vfile = null, vurl = null, vurlB = false, key = '';
+  function shareOrSave(data, name, mime, okMsg) {
+    var file = null;
+    try { file = new File([data], name, { type: mime }); } catch (e) {}
+    if (file && navigator.canShare && navigator.share) {
+      var ok = false; try { ok = navigator.canShare({ files: [file] }); } catch (e) {}
+      if (ok) return navigator.share({ files: [file] }).then(function () { toast(okMsg); }).catch(function (err) { if (err && err.name === 'AbortError') return; return saveAny(data, name, mime, okMsg); });
+    }
+    return saveAny(data, name, mime, okMsg);
+  }
   function saveAny(data, name, mime, okMsg) {
     var cl = window.claude && window.claude.use ? window.claude.use('downloads') : Promise.resolve(null);
     return cl.then(function (dl) {
@@ -374,7 +382,28 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
   /* ---------- 파일 선택 ---------- */
   $('#btnHome').addEventListener('click', function () { showHome(); });
   $('#btnBack').addEventListener('click', function () { $('#empty').hidden = true; $('#app').hidden = false; $('#topActions').hidden = false; drawTimeline(); });
-  $('#fv').addEventListener('change', function (e) { var f = e.target.files[0]; e.target.value = ''; if (f) loadVideo(f); });
+  var pendingSubs = null;
+  function importRecordFile(f) {
+    return f.text().then(function (t) {
+      var o = JSON.parse(t);
+      if (o && o.shadow === 1 && o.key && o.record) { var h = { videos: {} }; h.videos[o.key] = o.record; mergeHist(h); return { key: o.key, rec: o.record }; }
+      if (o && o.videos) { mergeHist(o); return { key: null, rec: null }; }
+      throw new Error('bad');
+    });
+  }
+  $('#fv').addEventListener('change', function (e) {
+    var fl = Array.prototype.slice.call(e.target.files); e.target.value = '';
+    if (!fl.length) return;
+    var side = null, sub = null, vid = null;
+    fl.forEach(function (f) { var n = f.name.toLowerCase(); if (/\.json$/.test(n)) side = f; else if (/\.(srt|vtt)$/.test(n)) sub = f; else if (!vid) vid = f; });
+    var done = side ? importRecordFile(side).catch(function () { toast('기록 파일을 읽지 못했어요.'); return null; }) : Promise.resolve(null);
+    done.then(function (r) {
+      if (!vid) { if (r) { renderHome(); toast('기록을 가져왔어요. 이제 영상을 선택해 주세요.'); } else if (sub) toast('영상 파일도 같이 선택해 주세요.'); return; }
+      var vkey = vid.name + ':' + vid.size;
+      if (r && r.rec && !hist.videos[vkey]) { hist.videos[vkey] = JSON.parse(JSON.stringify(r.rec)); hist.videos[vkey].name = vid.name; hist.videos[vkey].size = vid.size; saveHist(); toast('영상 크기가 기록과 달라요. 다른 버전이면 문장 위치가 어긋날 수 있어요.'); }
+      pendingSubs = sub; loadVideo(vid);
+    });
+  });
   $('#fs').addEventListener('change', function (e) { var f = e.target.files[0]; e.target.value = ''; if (!f) return; if (!vfile) { toast('먼저 영상을 선택해 주세요.'); return; } loadSubs(f); });
 
   function loadVideo(f) {
@@ -394,6 +423,7 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
       if (m && m.segs && m.segs.length) { restore(m); toast('지난 기록을 불러왔어요. 문장 ' + (idx + 1) + '부터 이어서 해요.'); return; }
       if (f.builtin) { segs = JSON.parse(JSON.stringify(BUILTIN.segs)); persist(); setIdx(0, true); renderAll(); toast('문장 ' + segs.length + '개로 나눠 두었어요.'); return; }
       quickSegments();
+      if (pendingSubs) { var ps = pendingSubs; pendingSubs = null; loadSubs(ps); return; }
       if (IOS) toast('6초 단위로 나눴어요. 자막 파일을 넣거나 "다시 나누기"로 소리 기준 분석을 할 수 있어요.');
       else autoSegment();
     }
@@ -475,11 +505,11 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
   }
   $('#hExport').addEventListener('click', function () {
     persist();
-    saveAny(JSON.stringify(hist), 'shadowing-history.json', 'application/json', '학습 기록을 저장했어요. OneDrive에 같이 보관해 두세요.').catch(function (err) { if (!err || err.code !== 'declined') toast('저장하지 못했어요.'); });
+    shareOrSave(JSON.stringify(hist), 'shadowing-history.json', 'application/json', '학습 기록을 저장했어요. OneDrive에 같이 보관해 두세요.').catch(function (err) { if (!err || err.code !== 'declined') toast('저장하지 못했어요.'); });
   });
   $('#fh').addEventListener('change', function (e) {
     var f = e.target.files[0]; e.target.value = ''; if (!f) return;
-    f.text().then(function (t) { mergeHist(JSON.parse(t)); renderHome(); toast('학습 기록을 합쳤어요.'); }).catch(function () { toast('기록 파일을 읽지 못했어요.'); });
+    importRecordFile(f).then(function () { renderHome(); toast('학습 기록을 합쳤어요.'); }).catch(function () { toast('기록 파일을 읽지 못했어요.'); });
   });
 
   /* ---------- 자막 파싱 ---------- */
@@ -783,6 +813,14 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
     requestAnimationFrame(wave);
   }
 
+  $('#saveRec').addEventListener('click', function () {
+    if (!vfile || !segs.length) { toast('먼저 영상을 열어 주세요.'); return; }
+    persist();
+    var payload = JSON.stringify({ shadow: 1, key: key, record: hist.videos[key] });
+    shareOrSave(payload, vfile.name.replace(/\.[^.]+$/, '') + '.shadow.json', 'application/json', '기록 파일을 만들었어요. 영상이 있는 OneDrive 폴더에 저장해 두세요.')
+      .catch(function (err) { if (!err || err.code !== 'declined') toast('저장하지 못했어요.'); });
+  });
+
   /* ---------- 대본 붙여넣기 ---------- */
   function toSec2(t) { var p = t.split(':').map(Number); return p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p[0] * 60 + p[1]; }
   function parseTranscript(t) {
@@ -810,7 +848,7 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
     var c = parseTranscript($('#pasteBox').value);
     if (!c.length) { toast('시간이 같이 있는 대본이 필요해요. 스크립트를 시간 포함해서 복사해 주세요.'); return; }
     cues = c; hasText = true; applyCues(); $('#pasteModal').hidden = true; $('#pasteBox').value = '';
-    toast('대본 ' + segs.length + '문장을 넣었어요.');
+    toast('대본 ' + segs.length + '문장을 넣었어요. "기록 파일 저장"으로 OneDrive에 보관해 두세요.');
   });
 
   /* ---------- 표현 복사 ---------- */
@@ -998,7 +1036,6 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
 
   function loadBuiltin() { loadVideo({ name: BUILTIN.name, size: BUILTIN.size, builtin: true, url: BUILTIN.url }); }
   if (BUILTIN.url) { $('#btnBuiltin').hidden = false; $('#btnBuiltin').addEventListener('click', loadBuiltin); }
-  if ('serviceWorker' in navigator && /^https?:/.test(location.protocol)) { navigator.serviceWorker.register('sw.js').catch(function () {}); }
   renderHome();
 
   /* ---------- 키보드 ---------- */
@@ -1012,6 +1049,7 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
     else if (e.key === 'h' || e.key === 'H') { $('#hide').click(); }
   });
 })();
+  if ('serviceWorker' in navigator && /^https?:/.test(location.protocol)) { navigator.serviceWorker.register('sw.js').catch(function () {}); }
 </script>
 </body>
 </html>
