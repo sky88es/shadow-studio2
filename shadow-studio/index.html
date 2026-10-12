@@ -89,6 +89,7 @@ svg { display: block; fill: currentColor; }
 .timeline { width: 100%; height: 30px; display: block; border-radius: 8px; background: var(--surface); cursor: pointer; touch-action: none; }
 
 .player .timeline { height: 22px; }
+.syncrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 10px; }
 .toolrow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .toolrow button { padding: 9px 4px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); font-size: 13px; font-weight: 700; color: var(--fg); min-height: 40px; }
 .toolrow button:active { background: var(--surface-2); }
@@ -283,6 +284,12 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
           <button class="pill" id="myVoice" type="button" hidden>내 목소리 듣기</button>
           <button class="pill" id="compare" type="button" hidden>원본과 번갈아 듣기</button>
         </div>
+        <div class="syncrow">
+          <span>싱크 맞추기</span>
+          <button class="pill" id="syncAnchor" type="button">지금 위치 = 이 문장 시작</button>
+          <button class="pill" id="syncM" type="button">−0.5초</button>
+          <button class="pill" id="syncP" type="button">+0.5초</button>
+        </div>
       </div>
     </div>
 
@@ -292,6 +299,7 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
         <div class="opts">
           <label class="chk" id="mergeWrap" hidden><input type="checkbox" id="merge" checked> 문장으로 합치기</label>
           <button class="ghost" id="pasteBtn2" type="button">대본 붙여넣기</button>
+          <button class="ghost" id="splitBtn" type="button" hidden>문장 정확히 나누기</button>
           <button class="ghost" id="koBtn" type="button">한글 번역</button>
           <button class="ghost" id="saveRec" type="button">기록 파일 저장</button>
           <button class="ghost" id="copyStars" type="button">★ 표현 복사</button>
@@ -360,6 +368,7 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
     <h2>대본 붙여넣기</h2>
     <p style="margin:0;color:var(--muted);font-size:13px">유튜브 영상 아래 설명란의 "스크립트 표시"를 열고, 시간이 보이는 상태로 전체를 복사해서 붙여넣어 주세요. .srt 내용도 돼요.</p>
     <textarea id="pasteBox" rows="9" placeholder="0:00&#10;We bought an abandoned church...&#10;0:04&#10;Honestly, the renovation..." spellcheck="false" autocapitalize="off"></textarea>
+    <label class="chk" id="pSplitWrap" hidden><input type="checkbox" id="pSplit" checked><span> 붙여넣은 뒤 Claude가 문장을 정확히 나누기</span></label>
     <label class="chk" id="pKoWrap"><input type="checkbox" id="pKo" checked><span id="pKoLbl"> 붙여넣은 뒤 한글 번역도 자동으로</span></label>
     <div class="modal-btns"><button class="ghost" type="button" id="pCancel">닫기</button><button class="solid" type="submit">문장으로 나누기</button></div>
   </form>
@@ -614,7 +623,13 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
       toast('자막 ' + c.length + '줄을 불러왔어요.');
     });
   }
+  function isPresplit() {
+    if (!hasText || cues.length < 6) return false;
+    var n = cues.filter(function (x) { return /[.!?…]["')\]”’]?$/.test(x.text); }).length;
+    return n / cues.length >= 0.8;
+  }
   function applyCues() {
+    if (isPresplit()) $('#merge').checked = false;
     var d = v.duration || Infinity;
     var src = $('#merge').checked ? mergeSentences(cues) : cues.map(function (x) { return { s: x.s, e: x.e, text: x.text, ko: x.ko || '' }; });
     segs = src.filter(function (x) { return x.s < d; }).map(function (x) { x.e = Math.min(x.e, d); return x; });
@@ -680,7 +695,7 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
     });
   }
   var job = 0;
-  $('#busyX').addEventListener('click', function () { job++; koJob++; busy(false); toast('분석을 취소했어요.'); });
+  $('#busyX').addEventListener('click', function () { job++; koJob++; splitJob++; busy(false); toast('분석을 취소했어요.'); });
   $('#redo').addEventListener('click', function () { store('ss:gap', $('#gap').value); autoSegment(); });
 
   /* ---------- 렌더링 ---------- */
@@ -696,7 +711,7 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
       w.appendChild(tx); if (sg.ko && koOn) { var ko = document.createElement('span'); ko.className = 'ko'; ko.textContent = sg.ko; w.appendChild(ko); } w.appendChild(tm); li.appendChild(n); li.appendChild(w); listEl.appendChild(li);
     });
     $('#listInfo').textContent = segs.length ? segs.length + '문장 · ' + (hasText ? '자막 기준' : '소리 기준') : '';
-    $('#mergeWrap').hidden = !hasText; $('#autoWrap').hidden = hasText && false;
+    $('#mergeWrap').hidden = !hasText || isPresplit(); $('#autoWrap').hidden = hasText && false;
     markCards(); paintCard(); drawTimeline();
   }
   listEl.addEventListener('click', function (e) { var li = e.target.closest('.seg'); if (li) { setIdx(+li.dataset.i, true); play(); } });
@@ -911,10 +926,77 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
     e.preventDefault();
     var c = parseTranscript($('#pasteBox').value);
     if (!c.length) { toast('시간이 같이 있는 대본이 필요해요. 스크립트를 시간 포함해서 복사해 주세요.'); return; }
-    cues = c; hasText = true; applyCues(); $('#pasteModal').hidden = true; $('#pasteBox').value = '';
+    var enders = c.filter(function (x) { return /[.!?…]["')\]”’]?$/.test(x.text); }).length;
+    cues = c; hasText = true;
+    if (c.length > 5 && enders / c.length >= 0.8) $('#merge').checked = false;
+    applyCues(); $('#pasteModal').hidden = true; $('#pasteBox').value = '';
     toast('대본 ' + segs.length + '문장을 넣었어요. "기록 파일 저장"으로 OneDrive에 보관해 두세요.');
-    if ($('#pKo').checked) runKoAuto();
+    var after = function () { if ($('#pKo').checked) runKoAuto(); };
+    if (sampleFn && $('#pSplit').checked) runSplit().then(after); else after();
   });
+
+  /* ---------- Claude로 문장 정확히 나누기 ---------- */
+  function cueWords(list) {
+    var ws = [];
+    list.forEach(function (c) {
+      var t = c.text.split(/\s+/).filter(Boolean), d = Math.max(0.2, c.e - c.s);
+      t.forEach(function (w, i) { ws.push({ w: w, s: c.s + d * i / t.length, e: c.s + d * (i + 1) / t.length }); });
+    });
+    return ws;
+  }
+  function splitChunk(words) {
+    var prompt = '아래는 자동 생성된 영어 대본인데 문장부호가 거의 없습니다. 자연스러운 문장 단위로 나눠 주세요. 규칙: 단어를 빼거나 더하거나 순서를 바꾸지 말 것. 마침표·물음표·쉼표·대문자는 알맞게 넣어도 됨. 인용 대사와 이어지는 말은 한 문장으로. 문장 하나는 보통 4~35단어. 오직 문자열 JSON 배열만 출력하세요.\n\n' + words.map(function (x) { return x.w; }).join(' ');
+    return sampleFn.json(prompt, { modelTier: 'default' }).then(function (arr) {
+      if (!Array.isArray(arr)) throw { code: 'invalid_json' };
+      var total = 0; arr.forEach(function (t) { total += String(t).split(/\s+/).filter(Boolean).length; });
+      if (total !== words.length) throw { code: 'mismatch' };
+      return arr.map(String);
+    });
+  }
+  var splitJob = 0;
+  function runSplit() {
+    if (!sampleFn || !cues.length) { toast('문장 나누기는 Claude 아티팩트에서만 돼요.'); return Promise.resolve(); }
+    var job = ++splitJob, words = cueWords(cues), out = [], pos = 0, carry = [], fails = 0, CH = 220;
+    busy(true, '문장을 나누는 중이에요', '0 / ' + words.length + '단어');
+    function emit(sentTexts, used) {
+      var k = 0;
+      sentTexts.forEach(function (t) {
+        var n = t.split(/\s+/).filter(Boolean).length, a = used[k], b = used[k + n - 1]; k += n;
+        if (a && b) out.push({ s: a.s, e: b.e, text: t.trim() });
+      });
+    }
+    function step() {
+      if (job !== splitJob) return Promise.resolve(false);
+      if (pos >= words.length && !carry.length) return Promise.resolve(true);
+      var chunk = carry.concat(words.slice(pos, pos + CH)); pos += Math.min(CH, words.length - pos); carry = [];
+      var last = pos >= words.length;
+      return splitChunk(chunk).then(function (arr) {
+        var keep = arr, rest = [];
+        if (!last && arr.length > 1) { rest = arr[arr.length - 1]; keep = arr.slice(0, -1); }
+        var nKeep = 0; keep.forEach(function (t) { nKeep += t.split(/\s+/).filter(Boolean).length; });
+        emit(keep, chunk.slice(0, nKeep)); carry = chunk.slice(nKeep);
+        if (last) carry = [];
+        $('#busyS').textContent = Math.min(pos, words.length) + ' / ' + words.length + '단어';
+        return step();
+      }).catch(function (e) {
+        if (e && e.code === 'cancelled') return false;
+        if (e && (e.code === 'mismatch' || e.code === 'invalid_json')) { fails++; var u = chunk; out.push({ s: u[0].s, e: u[u.length - 1].e, text: u.map(function (x) { return x.w; }).join(' ') }); return step(); }
+        throw e;
+      });
+    }
+    return step().then(function (ok) {
+      busy(false);
+      if (!ok || job !== splitJob) return;
+      if (!out.length) { toast('문장 나누기에 실패했어요.'); return; }
+      cues = out; hasText = true; $('#merge').checked = false; applyCues();
+      toast('문장 ' + out.length + '개로 나눴어요.' + (fails ? ' (일부 구간은 원래대로 둠)' : ''));
+    }).catch(function (e) {
+      busy(false); var c = e && e.code;
+      if (c === 'not_granted') { sampleFn = null; refreshKoUi(); toast('Claude 사용을 허용해야 문장을 나눌 수 있어요.'); }
+      else toast('문장 나누기 중 문제가 생겼어요. 다시 눌러 주세요.');
+    });
+  }
+  $('#splitBtn').addEventListener('click', function () { if (!hasText) { toast('먼저 영어 대본을 넣어 주세요.'); return; } runSplit(); });
 
   /* ---------- 한글 번역 ---------- */
   function openKo() { if (!segs.length) { toast('먼저 영상과 대본을 열어 주세요.'); return; } $('#koShow').checked = koOn; $('#koModal').hidden = false; }
@@ -968,7 +1050,7 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
   function webTranslate(text) { return gtx(text).catch(function (e) { lastKoErr = String(e && e.message || e); return mymem(text); }).catch(function (e) { lastKoErr += ' / ' + String(e && e.message || e); throw e; }); }
   var sampleFn = null;
   try { if (window.claude && window.claude.use) window.claude.use('sample').then(function (f) { sampleFn = f || null; refreshKoUi(); }).catch(function () {}); } catch (e) {}
-  function refreshKoUi() { var l = $('#pKoLbl'); if (l) l.textContent = sampleFn ? ' 붙여넣은 뒤 Claude가 한글로 자연스럽게 번역' : ' 붙여넣은 뒤 한글 번역도 자동으로 (인터넷 번역)'; var b = $('#koAuto'); if (b) b.textContent = sampleFn ? 'Claude로 자연스럽게 번역' : '인터넷으로 자동 번역'; }
+  function refreshKoUi() { var sw = $('#pSplitWrap'); if (sw) sw.hidden = !sampleFn; var sb = $('#splitBtn'); if (sb) sb.hidden = !sampleFn; var l = $('#pKoLbl'); if (l) l.textContent = sampleFn ? ' 붙여넣은 뒤 Claude가 한글로 자연스럽게 번역' : ' 붙여넣은 뒤 한글 번역도 자동으로 (인터넷 번역)'; var b = $('#koAuto'); if (b) b.textContent = sampleFn ? 'Claude로 자연스럽게 번역' : '인터넷으로 자동 번역'; }
   function claudeChunk(idxs) {
     var texts = idxs.map(function (k) { return segs[k].text; });
     var prompt = '아래는 영어 영상 대본의 연속된 문장들입니다(JSON 배열). 앞뒤 문맥을 고려해 각 문장을 자연스럽고 매끄러운 한국어(구어체)로 번역하세요. 직역투를 피하고 뜻이 바로 들어오게 쓰세요. 입력과 같은 개수의 한국어 문자열로 된 JSON 배열만 출력하세요.\n\n' + JSON.stringify(texts);
@@ -1052,6 +1134,19 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
     return out.sort(function (a, b) { return a.i - b.i; });
   }
   var TYPE_NAME = { cloze: '빈칸 채우기', dictation: '받아쓰기', script: '쉐도잉 체크표' };
+  function shiftAll(dt) {
+    var sh = function (x) { x.s = Math.max(0, x.s + dt); x.e = Math.max(x.s + 0.3, x.e + dt); };
+    segs.forEach(sh); cues.forEach(sh); persist();
+    var i = Math.max(0, idx); idx = -1; setIdx(i, true); renderAll();
+  }
+  $('#syncAnchor').addEventListener('click', function () {
+    if (idx < 0 || !segs[idx]) { toast('먼저 문장을 골라 주세요.'); return; }
+    var dt = v.currentTime - segs[idx].s;
+    if (Math.abs(dt) < 0.05) { toast('이미 맞아요.'); return; }
+    shiftAll(dt); toast('전체 문장을 ' + (dt > 0 ? '+' : '') + dt.toFixed(1) + '초 옮겼어요.');
+  });
+  $('#syncM').addEventListener('click', function () { shiftAll(-0.5); toast('0.5초 앞으로 옮겼어요.'); });
+  $('#syncP').addEventListener('click', function () { shiftAll(0.5); toast('0.5초 뒤로 옮겼어요.'); });
   $('#tEn').addEventListener('click', function () { $('#btnPaste').click(); });
   $('#tKo').addEventListener('click', function () { $('#koBtn').click(); });
   $('#tPdf').addEventListener('click', function () { $('#btnSheet').click(); });
