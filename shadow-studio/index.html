@@ -89,6 +89,10 @@ svg { display: block; fill: currentColor; }
 .timeline { width: 100%; height: 30px; display: block; border-radius: 8px; background: var(--surface); cursor: pointer; touch-action: none; }
 
 .player .timeline { height: 22px; }
+.toolrow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.toolrow button { padding: 9px 4px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); font-size: 13px; font-weight: 700; color: var(--fg); min-height: 40px; }
+.toolrow button:active { background: var(--surface-2); }
+.toolrow button.done { border-color: var(--accent); color: var(--accent); }
 .card.pinned { padding: 10px 14px 12px; gap: 6px; text-align: center; }
 .card.pinned .card-head { justify-content: space-between; }
 .card.pinned .line { font-size: clamp(19px, 5vw, 26px); min-height: 2.6em; display: flex; align-items: center; justify-content: center; }
@@ -258,6 +262,11 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
           <div class="segbar"><i id="segfill"></i></div>
         </div>
         <canvas class="timeline" id="timeline" tabindex="0" aria-label="영상 전체 문장 타임라인"></canvas>
+        <div class="toolrow" role="toolbar" aria-label="대본과 학습지">
+          <button type="button" id="tEn">영어 자막</button>
+          <button type="button" id="tKo">한글 자막</button>
+          <button type="button" id="tPdf">공부 PDF</button>
+        </div>
         <div class="card pinned" id="card">
           <div class="card-head"><span id="cardNo">문장 -</span><span id="cardTime">0:00 – 0:00</span></div>
           <p class="line" id="line">영상을 불러오는 중이에요.</p>
@@ -704,6 +713,7 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
     $('#cardTime').textContent = sg ? fmt(sg.s) + ' – ' + fmt(sg.e) + (counts[idx] ? ' · ' + counts[idx] + '회 연습' : '') : '';
     if (!sg) { $('#lineKo').textContent = ''; ln.textContent = '문장이 아직 없어요.'; ln.className = 'line none'; return; }
     ln.textContent = sg.text || '자막이 없어요. 소리를 듣고 그대로 따라 말해 보세요.';
+    $('#tEn').classList.toggle('done', !!hasText); $('#tKo').classList.toggle('done', segs.some(function (x) { return x.ko; }));
     $('#lineKo').hidden = !koOn; $('#lineKo').textContent = (koOn && sg.ko) ? sg.ko : '';
     ln.className = 'line' + (sg.text ? '' : ' none') + (blurOn && sg.text ? ' blur' : '');
     var r = recs[idx]; $('#myVoice').hidden = !r; $('#compare').hidden = !r;
@@ -1042,6 +1052,9 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
     return out.sort(function (a, b) { return a.i - b.i; });
   }
   var TYPE_NAME = { cloze: '빈칸 채우기', dictation: '받아쓰기', script: '쉐도잉 체크표' };
+  $('#tEn').addEventListener('click', function () { $('#btnPaste').click(); });
+  $('#tKo').addEventListener('click', function () { $('#koBtn').click(); });
+  $('#tPdf').addEventListener('click', function () { $('#btnSheet').click(); });
   $('#btnSheet').addEventListener('click', function () {
     if (!segs.length) { toast('문장이 만들어진 뒤에 학습지를 만들 수 있어요.'); return; }
     var n = starList().length;
