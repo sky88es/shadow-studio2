@@ -287,8 +287,7 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
         <div class="syncrow">
           <span>싱크 맞추기</span>
           <button class="pill" id="syncAnchor" type="button">지금 위치 = 이 문장 시작</button>
-          <button class="pill" id="syncOne" type="button">이 문장만</button>
-          <button class="pill" id="syncRest" type="button">이 문장부터 끝까지</button>
+          <button class="pill" id="syncAuto" type="button">자동 싱크 (소리 분석)</button>
           <button class="pill" id="syncM" type="button">−0.5초</button>
           <button class="pill" id="syncP" type="button">+0.5초</button>
         </div>
@@ -342,7 +341,6 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
 
 <input type="file" id="fv" class="vh" multiple>
 <input type="file" id="fk" class="vh">
-<input type="file" id="fe" class="vh" accept=".txt,.srt,.vtt,text/plain,text/vtt">
 <input type="file" id="fr" class="vh" accept="audio/*" capture>
 <input type="file" id="fh" class="vh" accept=".json,application/json">
 <input type="file" id="fs" class="vh" accept=".srt,.vtt,.txt,text/vtt,text/plain">
@@ -370,7 +368,6 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
   <form class="modal-card" id="pasteForm">
     <h2>대본 붙여넣기</h2>
     <p style="margin:0;color:var(--muted);font-size:13px">유튜브 영상 아래 설명란의 "스크립트 표시"를 열고, 시간이 보이는 상태로 전체를 복사해서 붙여넣어 주세요. .srt 내용도 돼요.</p>
-    <label class="ghost" for="fe" style="justify-self:start">대본 파일(.txt .srt .vtt) 불러오기</label>
     <textarea id="pasteBox" rows="9" placeholder="0:00&#10;We bought an abandoned church...&#10;0:04&#10;Honestly, the renovation..." spellcheck="false" autocapitalize="off"></textarea>
     <label class="chk" id="pSplitWrap" hidden><input type="checkbox" id="pSplit" checked><span> 붙여넣은 뒤 Claude가 문장을 정확히 나누기</span></label>
     <label class="chk" id="pKoWrap"><input type="checkbox" id="pKo" checked><span id="pKoLbl"> 붙여넣은 뒤 한글 번역도 자동으로</span></label>
@@ -621,8 +618,8 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
   }
   function loadSubs(f) {
     f.text().then(function (t) {
-      var c = parseSubs(t);
-      if (!c.length) { toast('시간 정보가 있는 자막(.srt, .vtt)만 불러올 수 있어요.'); return; }
+      var c = parseTranscript(t);
+      if (!c.length) { toast('시간 정보가 있는 자막(.srt, .vtt, 또는 [00:01:23] 문장 형식 txt)만 불러올 수 있어요.'); return; }
       cues = c; hasText = true; applyCues();
       toast('자막 ' + c.length + '줄을 불러왔어요.');
     });
@@ -905,11 +902,11 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
   });
 
   /* ---------- 대본 붙여넣기 ---------- */
-  function toSec2(t) { var p = t.split(':').map(Number); return p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p[0] * 60 + p[1]; }
+  function toSec2(t) { var p = t.split(':').map(parseFloat); return p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p[0] * 60 + p[1]; }
   function parseTranscript(t) {
     t = t.replace(/\r/g, '');
     if (TS.test(t)) return parseSubs(t);
-    var lines = t.split('\n').map(function (x) { return x.trim(); }).filter(Boolean), items = [], cur = null, re = /^[\[(]?((?:\d+:)?\d{1,2}:\d{2})[\])]?\s*(.*)$/;
+    var lines = t.split('\n').map(function (x) { return x.trim(); }).filter(Boolean), items = [], cur = null, re = /^[\[(]?((?:\d+:)?\d{1,2}:\d{2}(?:\.\d+)?)[\])]?\s*(.*)$/;
     lines.forEach(function (l) {
       if (/^(?:챕터|Chapter)\s*\d+/i.test(l)) { cur = null; return; }
       var m = l.match(re);
@@ -920,7 +917,7 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
     items = items.filter(function (i) { return i.text; });
     return items.map(function (it, i) {
       var words = it.text.split(' ').length, est = Math.max(2, words / 2.6), nx = i + 1 < items.length ? items[i + 1].t : it.t + est;
-      return { s: it.t, e: Math.min(nx, it.t + est + 1.5), text: it.text };
+      return { s: it.t, e: Math.max(Math.min(nx, it.t + est + 1.5), it.t + 0.6), text: it.text };
     }).filter(function (x) { return x.e > x.s; });
   }
   function openPaste() { if (!vfile) { toast('먼저 영상을 열어 주세요.'); return; } $('#pasteModal').hidden = false; }
@@ -1026,7 +1023,6 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
     });
     return n < Math.max(2, cues.length * 0.5) ? -1 : n;
   }
-  $('#fe').addEventListener('change', function (e) { var f = e.target.files[0]; e.target.value = ''; if (f) f.text().then(function (t) { $('#pasteBox').value = t; toast('파일을 불러왔어요. 아래 "문장으로 나누기"를 눌러 주세요.'); }); });
   $('#fk').addEventListener('change', function (e) { var f = e.target.files[0]; e.target.value = ''; if (f) f.text().then(function (t) { $('#koBox').value = t; }); });
   $('#koForm').addEventListener('submit', function (e) {
     e.preventDefault();
@@ -1139,6 +1135,55 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
     return out.sort(function (a, b) { return a.i - b.i; });
   }
   var TYPE_NAME = { cloze: '빈칸 채우기', dictation: '받아쓰기', script: '쉐도잉 체크표' };
+  function speechOnsets(file) {
+    return file.arrayBuffer().then(decode).then(function (ab) {
+      var d = ab.getChannelData(0), sr = ab.sampleRate, fl = Math.round(sr * 0.02), n = Math.floor(d.length / fl), r = new Float32Array(n), i, j, sum;
+      for (i = 0; i < n; i++) { sum = 0; for (j = 0; j < fl; j++) { var x = d[i * fl + j]; sum += x * x; } r[i] = Math.sqrt(sum / fl); }
+      var sorted = Array.prototype.slice.call(r).sort(function (a, b) { return a - b; });
+      var lo = sorted[Math.floor(n * 0.2)], hi = sorted[Math.floor(n * 0.9)], thr = lo + (hi - lo) * 0.12;
+      var on = [], start = -1, quiet = 0, minQ = Math.round(0.3 / 0.02);
+      for (i = 0; i < n; i++) {
+        if (r[i] > thr) { if (start < 0) { start = i; on.push(i * 0.02); } quiet = 0; }
+        else if (start >= 0) { quiet++; if (quiet >= minQ) { start = -1; quiet = 0; } }
+      }
+      return { onsets: on, dur: ab.duration };
+    });
+  }
+  function nearestDist(arr, t) {
+    var lo = 0, hi = arr.length - 1;
+    while (lo < hi) { var m = (lo + hi) >> 1; if (arr[m] < t) lo = m + 1; else hi = m; }
+    var d = Math.abs(arr[lo] - t); if (lo > 0) d = Math.min(d, Math.abs(arr[lo - 1] - t)); return d;
+  }
+  function bestShift(T, O, aMin, aMax, aStep, bMin, bMax, bStep) {
+    var best = { sc: -1, a: 0, b: 1 };
+    for (var b = bMin; b <= bMax + 1e-9; b += bStep) for (var a = aMin; a <= aMax + 1e-9; a += aStep) {
+      var sc = 0; for (var i = 0; i < T.length; i++) { var d = nearestDist(O, T[i] * b + a); if (d < 0.6) sc += 1 - d / 0.6; }
+      if (sc > best.sc) best = { sc: sc, a: a, b: b };
+    }
+    return best;
+  }
+  var syncBusy = false;
+  $('#syncAuto').addEventListener('click', function () {
+    if (!vfile || !segs.length || !hasText) { toast('먼저 영어 대본을 넣어 주세요.'); return; }
+    if (syncBusy) return; syncBusy = true;
+    busy(true, '소리와 대본 위치를 맞추는 중이에요', '영상 소리를 분석해요.');
+    var guard = setTimeout(function () { syncBusy = false; busy(false); toast('분석이 오래 걸려서 멈췄어요.'); }, 90000);
+    speechOnsets(vfile).then(function (res) {
+      clearTimeout(guard); syncBusy = false;
+      var O = res.onsets, T = segs.map(function (x) { return x.s; });
+      if (O.length < 5) { busy(false); toast('영상에서 말소리를 찾지 못했어요.'); return; }
+      var c = bestShift(T, O, -90, 90, 0.25, 0.97, 1.03, 0.002);
+      var f = bestShift(T, O, c.a - 0.4, c.a + 0.4, 0.05, c.b - 0.002, c.b + 0.002, 0.0005);
+      var ratio = f.sc / T.length;
+      busy(false);
+      if (ratio < 0.3) { toast('소리와 맞는 위치를 못 찾았어요 (일치 ' + Math.round(ratio * 100) + '%). 영상이 대본과 다른 버전일 수 있어요.'); return; }
+      var tf = function (x) { x.s = Math.max(0, f.b * x.s + f.a); x.e = Math.max(x.s + 0.3, f.b * x.e + f.a); };
+      segs.forEach(tf); cues.forEach(tf);
+      segs.forEach(function (x) { var t = x.s, d = nearestDist(O, t); if (d < 0.6) { var k = 0, bd = 9; for (var q = 0; q < O.length; q++) { var dd = Math.abs(O[q] - t); if (dd < bd) { bd = dd; k = q; } } x.s = Math.max(0, O[k] - 0.1); } });
+      persist(); var i0 = Math.max(0, idx); idx = -1; setIdx(i0, true); renderAll();
+      toast('자동 싱크 완료: ' + (f.a >= 0 ? '+' : '') + f.a.toFixed(1) + '초' + (Math.abs(f.b - 1) > 0.001 ? ', 속도차 ' + ((f.b - 1) * 100).toFixed(2) + '%' : '') + ' (일치 ' + Math.round(ratio * 100) + '%)');
+    }).catch(function () { clearTimeout(guard); syncBusy = false; busy(false); toast('소리 분석이 안 돼요. 수동 싱크를 써 주세요.'); });
+  });
   function shiftAll(dt) {
     var sh = function (x) { x.s = Math.max(0, x.s + dt); x.e = Math.max(x.s + 0.3, x.e + dt); };
     segs.forEach(sh); cues.forEach(sh); persist();
@@ -1150,22 +1195,6 @@ button, .seg, .step, .tb, .big { touch-action: manipulation; }
     if (Math.abs(dt) < 0.05) { toast('이미 맞아요.'); return; }
     shiftAll(dt); toast('전체 문장을 ' + (dt > 0 ? '+' : '') + dt.toFixed(1) + '초 옮겼어요.');
   });
-  function moveSegs(from, to, dt) {
-    for (var j = from; j <= to; j++) { var x = segs[j], d = x.e - x.s; x.s = Math.max(0, x.s + dt); x.e = x.s + d; }
-    if (from > 0 && segs[from - 1].e > segs[from].s) segs[from - 1].e = Math.max(segs[from - 1].s + 0.3, segs[from].s - 0.05);
-    if (to + 1 < segs.length && segs[to].e > segs[to + 1].s) segs[to].e = Math.max(segs[to].s + 0.3, segs[to + 1].s - 0.05);
-    cues = segs.map(function (x) { return { s: x.s, e: x.e, text: x.text, ko: x.ko || '' }; }); $('#merge').checked = false;
-    persist(); var i = idx; idx = -1; setIdx(i, true); renderAll();
-  }
-  function anchorMove(rest) {
-    if (idx < 0 || !segs[idx]) { toast('먼저 문장을 골라 주세요.'); return; }
-    var dt = v.currentTime - segs[idx].s;
-    if (Math.abs(dt) < 0.05) { toast('이미 맞아요.'); return; }
-    moveSegs(idx, rest ? segs.length - 1 : idx, dt);
-    toast((rest ? '이 문장부터 끝까지 ' : '이 문장만 ') + (dt > 0 ? '+' : '') + dt.toFixed(1) + '초 옮겼어요.');
-  }
-  $('#syncOne').addEventListener('click', function () { anchorMove(false); });
-  $('#syncRest').addEventListener('click', function () { anchorMove(true); });
   $('#syncM').addEventListener('click', function () { shiftAll(-0.5); toast('0.5초 앞으로 옮겼어요.'); });
   $('#syncP').addEventListener('click', function () { shiftAll(0.5); toast('0.5초 뒤로 옮겼어요.'); });
   $('#tEn').addEventListener('click', function () { $('#btnPaste').click(); });
